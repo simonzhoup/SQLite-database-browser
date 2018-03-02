@@ -7,8 +7,8 @@
     <label for="id_rename">Column</label>
     <select class="form-control" id="id_rename" name="rename">
       <option value="">Select column</option>
-      {% for column in columns %}
-        <option {% if column.name == rename %}selected="selected" {% endif %}value="{{ column.name }}">{{ column.name }} ({{ column.data_type }})</option>
+      {% for info in infos %}
+        <option {% if info[1] == rename %}selected="selected" {% endif %}value="{{ info[1] }}"><a href="{{ url_for('rename_column',table=table,rename=info[1]) }}">{{ info[1] }} ({{ info[2] }})</a></option>
       {% endfor %}
     </select>
   </div>
@@ -20,6 +20,6 @@
     </span>
   </div>
   <button class="btn btn-success" type="submit">Rename column</button>
-  <a class="btn btn-default" href="{{ url_for('table_structure', table=table) }}">Cancel</a>
+  <a class="btn btn-default" href="{{ url_for('table_info',table=table) }}">Cancel</a>
 </form>
 {% endblock %}

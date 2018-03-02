@@ -52,7 +52,7 @@
             {% endif %}
           </td>
           <td>
-            <a href="#">Rename</a>
+            <a href="{{ url_for('rename_column',table=table,rename=info[1]) }}">Rename</a>
             <span class="separator">|</span>
             <a href="#">Drop</a>
           </td>

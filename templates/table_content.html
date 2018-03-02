@@ -18,12 +18,13 @@
 
 {% block content_title %}
   {{ super() }}
-  <small>{{ columns|length }} rows, showing page {{ page }}</small>
+  <small>{{ columns_count|length }} rows, showing page {{ page }}</small>
 {% endblock %}
 
 {% block content_tab_class %}active{% endblock %}
 
 {% block inner_content %}
+<div class="table-responsive">
   <table class="table table-striped">
     <thead>
       <tr>
@@ -37,31 +38,34 @@
     <tbody>
       {% for column in columns %}
         <tr>
+            {% for i in range(0,infos|length) %}
             <td>
-                {{ column[0]|safe }}
+                {{ column[i] }}
             </td>
-            <td>
-                {{ column[1]|safe }}
-            </td>
-          <td>
-                {{ column[2] }}
-            </td>
-          <td>
-                {{ column[3]|safe }}
-            </td>
+            {% endfor %}
         </tr>
       {% endfor %}
     </tbody>
   </table>
+</div>
   <nav>
     <ul class="pager">
       <li class="{% if not previous_page %}disabled {% endif %}previous">
+        {% if not previous_page %}
+        <a href=" ">&larr; Previous</a>
+        {% else %}
         <a href="{{ url_for('table_content', table=table, page=previous_page, ordering=ordering) }}">&larr; Previous</a>
+        {% endif %}
       </li>
       <li>Page {{ page }} / {{ total_pages }}</li>
       <li class="{% if not next_page %}disabled {% endif %}next">
+        {% if not next_page %}
+        <a href=" ">Next &rarr;</a>
+        {% else %}
         <a href="{{ url_for('table_content', table=table, page=next_page, ordering=ordering) }}">Next &rarr;</a>
+        {% endif %}
       </li>
     </ul>
   </nav>
+
 {% endblock %}
