@@ -1,0 +1,30 @@
+{% extends "base_tables.html" %}
+
+{% block content_title %}{{ dataset.filename }}{% endblock %}
+
+{% block content %}
+  <table class="table table-striped">
+    <tbody>
+      <tr>
+        <th>Location</th>
+        <td>{{ dataset.location }}</td>
+      </tr>
+      <tr>
+        <th>Size</th>
+        <td>{{ dataset.size|filesizeformat }}</td>
+      </tr>
+      <tr>
+        <th>Created</th>
+        <td>{{ dataset.created.strftime('%A %B %d, %Y at %I:%M:%p') }}</td>
+      </tr>
+      <tr>
+        <th>Modified</th>
+        <td>{{ dataset.modified.strftime('%A %B %d, %Y at %I:%M:%p') }}</td>
+      </tr>
+      <tr>
+        <th>Tables</th>
+        <td>{{ dataset.tables|length }}</td>
+      </tr>
+    </tbody>
+  </table>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block sidebar %}
+  <input class="form-control input-sm" id="table-search" placeholder="table name..." type="text" />
+  <ul class="nav nav-pills nav-stacked" role="tablist">
+    {% for table_name in dataset.tables|sort %}
+      {% if table_name not in virtual_tables_corollary %}
+      <li class="table-link{% if table and table_name == table %} active{% endif %}">
+        <a href="{{ url_for('table_info',table=table_name) }}">
+          {{ table_name }}
+        </a>
+      </li>
+      {% endif %}
+    {% endfor %}
+  </ul>
+{% endblock %}

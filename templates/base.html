@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <title>SQLite Web: {{ dataset.filename }}</title>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <link href="https://cdn.bootcss.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/sqlbrowse.css') }}" />
+    <link rel=stylesheet type=text/css href="{{ url_for('static', filename='css/syntax-highlight.css') }}" />
+    {% block extra_head %}{% endblock %}
+    <script src="https://cdn.bootcss.com/jquery/2.1.1/jquery.min.js"></script>
+    <script src="https://cdn.bootcss.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+    <script type="text/javascript">
+      $(function() {
+        $('a#toggle-helper-tables').on('click', function(e) {
+          e.preventDefault();
+          $('ul#helper-tables').toggle();
+        });
+        $('input#table-search').on('keyup', function(e) {
+          var searchQuery = $(this).val().toUpperCase();
+          $('li.table-link').each(function() {
+            var elem = $(this),
+                tableName = elem.find('a').prop('innerText').toUpperCase();
+            elem.toggle(tableName.indexOf(searchQuery) != -1);
+          });
+        });
+      });
+    </script>
+    {% block extra_scripts %}{% endblock %}
+  </head>
+
+  <body class="{% block body_class %}{% endblock %}">
+    <div class="container">
+      {% block page_header %}
+        <div class="page-header">
+          {% block content_header %}
+            <form action="{# url_for('table_create') #}" class="form-inline pull-right" method="post">
+              <input name="redirect" type="hidden" value="{{ request.path }}" />
+              <input class="form-control input-sm" name="table_name" placeholder="new_table_name" />
+              <button class="btn btn-primary btn-sm" type="submit">Create</button>
+            </form>
+          {% endblock %}
+          <h1>{% block content_title %}{% endblock %}</h1>
+        </div>
+      {% endblock %}
+      <div class="col-xs-3" id="sidebar">
+        {% block sidebar %}{% endblock %}
+        {% block logout %}{% if login_required %}<a href="{{ url_for('logout') }}">Log-out</a>{% endif %}{% endblock %}
+      </div>
+      <div class="col-xs-9" id="content">
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+          <div class="alert alert-{{ category }} alert-dismissable">
+            <button type="button" class="close" data-dismiss="alert" aria-hidden="true">&times;</button>
+            <p>{{ message }}</p>
+          </div>
+        {% endfor %}
+        {% block content %}{% endblock %}
+      </div>
+      <div class="row">
+        <div class="col-xs-9 col-xs-offset-3">
+          <footer>
+            <hr />
+            <p>
+              Web-based SQLite database browser, powered by
+              <a href="http://flask.pocoo.org/">Flask</a>.
+              &copy; 2018  <a href="http://ocooc.cc/">Simon Zhou</a>
+            </p>
+          </footer>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
