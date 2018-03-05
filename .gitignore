@@ -84,7 +84,7 @@ celerybeat-schedule
 *.sage.py
 
 # Environments
-.sqlite
+*.sqlite
 .env
 .venv
 env/
