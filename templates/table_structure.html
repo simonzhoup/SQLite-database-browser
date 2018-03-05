@@ -20,10 +20,10 @@
 
 {% block inner_content %}
   <h3 id="sql">SQL</h3>
-  <pre>{{ table_sql }}</pre>
+  {{ table_sql|format_create_table|highlight }}
 
   <h3 id="columns">
-    <p class="pull-right"><a class="btn btn-primary btn-sm" href="#">Add column</a></p>
+    <p class="pull-right"><a class="btn btn-primary btn-sm" href="{{ url_for('add_column',table=table) }}">Add column</a></p>
     Columns
   </h3>
   <table class="table table-striped">
@@ -54,7 +54,7 @@
           <td>
             <a href="{{ url_for('rename_column',table=table,rename=info[1]) }}">Rename</a>
             <span class="separator">|</span>
-            <a href="#">Drop</a>
+            <a href="{{ url_for('drop_column',table=table,name=info[1]) }}">Drop</a>
           </td>
         </tr>
       {% endfor %}
@@ -83,61 +83,6 @@
     <hr />
   {% endif %}
 
-  <h3 id="indexes">
-    <p class="pull-right"><a class="btn btn-primary btn-sm" href="#">Add index</a></p>
-    Indexes
-  </h3>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <!-- <th>Columns</th> -->
-        <th>Unique</th>
-        <th>SQL</th>
-        <th>Drop?</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for index in indexes %}
-        <tr>
-          <td>{{ index[1] }}</td>
-          <!-- <td>
-            {% if index.columns|length == 1 %}
-              <code>{{ index.columns[0] }}</code>
-            {% else %}
-              <ul>
-                {% for column in index.columns %}
-                  <li><code>{{ column }}</code></li>
-                {% endfor %}
-              </ul>
-            {% endif %}
-          </td> -->
-          <td>
-            {% if index[2] %}
-              <span class="glyphicon glyphicon-ok"></span>
-            {% endif %}
-          </td>
-          <td>
-            <a class="view-sql" data-name="{{ index.name }}" href="#">SQL</a>
-            <div style="display:none;">{% if index.sql %}{{ index.sql }}{% else %}-- no sql found --{% endif %}</div>
-          </td>
-          <td>
-            <a href="#">Drop</a>
-          </td>
-        </tr>
-      {% endfor %}
-    </tbody>
-  </table>
 
-  <div class="modal fade" id="sql-modal">
-    <div class="modal-dialog">
-      <div class="modal-content">
-        <div class="modal-header">
-          <button type="button" class="close" data-dismiss="modal"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>
-          <h4 class="modal-title"></h4>
-        </div>
-        <div class="modal-body"></div>
-      </div>
-    </div>
-  </div>
+
 {% endblock %}

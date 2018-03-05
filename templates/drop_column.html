@@ -7,12 +7,12 @@
     <label for="id_name">Column name</label>
     <select class="form-control" id="id_name" name="name">
       <option value="">Select column</option>
-      {% for column in columns %}
-        <option {% if column.name == name %}selected="selected" {% endif %}value="{{ column.name }}">{{ column.name }} ({{ column.data_type }})</option>
+      {% for info in infos %}
+        <option {% if info[1] == name %}selected="selected" {% endif %}value="{{ info[1] }}">{{ info[1] }} ({{ info[2] }})</option>
       {% endfor %}
     </select>
   </div>
   <button class="btn btn-danger" type="submit">Drop column</button>
-  <a class="btn btn-default" href="{{ url_for('table_structure', table=table) }}">Cancel</a>
+  <a class="btn btn-default" href="{{ url_for('table_info', table=table) }}">Cancel</a>
 </form>
 {% endblock %}

@@ -13,7 +13,7 @@
       <a href="{{ url_for('table_content', table=table) }}">Content</a>
     </li>
     <li role="presentation" class="{% block query_tab_class %}{% endblock %}">
-      <a href="#">Query</a>
+      <a href="{{ url_for('table_query', table=table) }}">Query</a>
     </li>
     <li role="presentation" class="pull-right{% block drop_tab_class %}{% endblock %}">
       <a href="#">Drop</a>
