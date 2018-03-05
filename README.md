@@ -1,6 +1,6 @@
 # SQLite-database-browser
 
-# 这是一个用Python编写的SQLite数据库浏览器
+这是一个用Python编写的SQLite数据库浏览器
 
 项目依赖：
 * [flask](http://flask.pocoo.org)
