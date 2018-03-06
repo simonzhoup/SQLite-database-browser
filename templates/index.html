@@ -3,6 +3,7 @@
 {% block content_title %}{{ dataset.filename }}{% endblock %}
 
 {% block content %}
+{% if dataset %}
   <table class="table table-striped">
     <tbody>
       <tr>
@@ -27,4 +28,6 @@
       </tr>
     </tbody>
   </table>
+{% else %}
+{% endif %}
 {% endblock %}

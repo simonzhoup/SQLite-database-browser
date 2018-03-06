@@ -1,14 +1,22 @@
 # -*- coding: utf-8 -*-
 # Librarys
 import os
-import datetime
-import sqlite3
 import re
+import sys
+import csv
+import json
+import sqlite3
+import datetime
 import collections
+from functools import wraps
 from collections import namedtuple, OrderedDict
 
-from flask import Flask, render_template, request, flash, redirect, url_for, Markup
-
+try:
+    from flask import (Flask, render_template, request, abort,
+                       flash, redirect, url_for, Markup, make_response, send_file, send_from_directory)
+except ImportError:
+    raise RuntimeError('Unable to import flask module. Install by running '
+                       'pip install flask')
 try:
     from pygments import formatters, highlight, lexers
 except ImportError:
@@ -30,10 +38,8 @@ DEBUG = True
 SECRET_KEY = 'sqlite-database-browser-0.1.0'
 MAX_RESULT_SIZE = 50
 ROWS_PER_PAGE = 20
+OUT_FOLDER = 'export_file'
 
-IndexMetadata = collections.namedtuple(
-    'IndexMetadata',
-    ('name', 'sql', 'columns', 'unique', 'table'))
 # Variables
 
 app = Flask(__name__)
@@ -174,6 +180,35 @@ class SqliteTools():
     def reset(self):
         self.db.rollback()
 
+
+# def no_database(dataset):
+#     def decorator(func):
+#         def wrapper(*args, **kw):
+#             if not dataset:
+#                 print('11111')
+#                 return redirect(url_for('index'))
+#             return func(*args, **kw)
+#         return wrapper
+#     return decorator
+
+
+def require_database(fn):
+    @wraps(fn)
+    def inner(*args, **kwargs):
+        if not database:
+            return redirect(url_for('index'))
+        return fn(*args, **kwargs)
+    return inner
+
+
+def require_table(fn):
+    @wraps(fn)
+    def inner(table, *args, **kwargs):
+        if table not in dataset.tables:
+            abort(404)
+        return fn(table, *args, **kwargs)
+    return inner
+
 # Views
 
 
@@ -182,7 +217,9 @@ def index():
     return render_template('index.html')
 
 
+@require_database
 @app.route('/<table>', methods=('GET', 'POST'))
+@require_table
 def table_info(table):
     return render_template(
         'table_structure.html',
@@ -194,7 +231,9 @@ def table_info(table):
         table_sql=dataset.table_sql(table))
 
 
+@require_database
 @app.route('/<table>/rename-column', methods=['GET', 'POST'])
+@require_table
 def rename_column(table):
     rename = request.args.get('rename')
     infos = dataset.get_table_info(table)
@@ -217,7 +256,9 @@ def rename_column(table):
     )
 
 
+@require_database
 @app.route('/<table>/drop-column/', methods=['GET', 'POST'])
+@require_table
 def drop_column(table):
     name = request.args.get('name')
     infos = dataset.get_table_info(table)
@@ -241,7 +282,9 @@ def drop_column(table):
         name=name)
 
 
+@require_database
 @app.route('/<table>/add-column/', methods=['GET', 'POST'])
+@require_table
 def add_column(table):
     column_mapping = ['VARCHAR', 'TEXT', 'INTEGER', 'REAL',
                       'BOOL', 'BLOB', 'DATETIME', 'DATE', 'TIME', 'DECIMAL']
@@ -261,6 +304,8 @@ def add_column(table):
 
 
 @app.route('/<table>/content/', methods=['GET', 'POST'])
+@require_database
+@require_table
 def table_content(table):
     # filter
     columns_count = dataset.get_table(table)
@@ -277,7 +322,6 @@ def table_content(table):
     previous_page = page - 1
     next_page = page + 1 if page + \
         1 <= total_pages else 0
-    print(next_page)
     return render_template(
         'table_content.html',
         columns=columns,
@@ -292,7 +336,9 @@ def table_content(table):
     )
 
 
+@require_database
 @app.route('/<table>/query/', methods=['GET', 'POST'])
+@require_table
 def table_query(table):
     row_count, error, data, data_description = None, None, None, None
     if request.method == 'POST':
@@ -329,6 +375,115 @@ def table_query(table):
     )
 
 
+@require_database
+@app.route('/table_create/', methods=['POST'])
+@require_table
+def table_create():
+    table = request.form.get('table_name', '')
+    if not table:
+        flash('Table name is required.', 'danger')
+        return redirect(request.referrer)
+    dataset.cursor.execute(
+        'CREATE TABLE %s(id INTEGER NOT NULL PRIMARY KEY)' % table)
+    return redirect(url_for('table_import', table=table))
+
+
+@require_database
+@app.route('/<table>/import/', methods=['GET', 'POST'])
+@require_table
+def table_import(table):
+    if request.method == 'POST':
+        file = request.files.get('file')
+        if not file:
+            flash('Please select an import file.', 'danger')
+        elif file.filename.lower().split('.')[-1] not in ['csv', 'json']:
+            flash('Unsupported file-type. Must be a .json or .csv file.',
+                  'danger')
+        else:
+            file_format = file.filename.lower().split('.')[-1]
+            try:
+                count = import_data_file(table, file, file_format)
+            except Exception as exc:
+                flash('Error importing file: %s' % exc, 'danger')
+            else:
+                flash('Successfully imported %s objects from %s.' %
+                      (count, file.filename), 'success')
+                return redirect(url_for('table_content', table=table))
+
+    return render_template('table_import.html', table=table)
+
+
+@require_database
+@require_table
+def import_data_file(table, file, file_format):
+    file.save(file.filename)
+    with open(file.filename, 'r') as f:
+        if file_format == 'json':
+            json_data = json.load(
+                f, object_pairs_hook=OrderedDict)
+            be_columns = [row[1] for row in dataset.get_table_info(table)]
+            columns = json_data[0].keys()
+            for column in columns:
+                if column not in be_columns:
+                    dataset.cursor.execute(
+                        'ALTER TABLE %s ADD COLUMN %s TEXT' % (table, column))
+            for data in json_data:
+                dataset.cursor.execute('INSERT INTO %s %s VALUES %s' % (
+                    table, str(tuple(data.keys())), str(tuple(data.values()))))
+                dataset.db.commit()
+            try:
+                os.remove(file.filename)
+            except:
+                pass
+            return len(json_data)
+        if file_format == 'csv':
+            csv_data = list(csv.reader(f))
+            be_columns = [row[1] for row in dataset.get_table_info(table)]
+            columns = csv_data.pop(0)
+            for column in columns:
+                if column not in be_columns:
+                    dataset.cursor.execute(
+                        'ALTER TABLE %s ADD COLUMN %s TEXT' % (table, column))
+            for data in csv_data:
+                dataset.cursor.execute('INSERT INTO %s %s VALUES %s' % (
+                    table, str(tuple(columns)), str(tuple(data))))
+                dataset.db.commit()
+            try:
+                os.remove(file.filename)
+            except:
+                pass
+            return len(csv_data)
+
+
+def export(table, sql, export_format):
+    cur = dataset.cursor.execute(sql)
+    data = cur.fetchall()
+    data_description = cur.description
+    row_count = cur.rowcount
+    filename_path = '%s/%s_export.%s' % (
+        app.config['OUT_FOLDER'], table, export_format)
+    filename = '%s_export.%s' % (table, export_format)
+    if export_format == 'csv':
+        data.insert(0, [row[0] for row in data_description])
+        with open(filename_path, 'w', newline='') as f:
+            writer = csv.writer(f)
+            for row in data:
+                writer.writerow(row)
+    elif export_format == 'json':
+        datas = []
+        rows = [row[0] for row in data_description]
+        for d in data:
+            dd = OrderedDict()
+            for i in range(len(rows)):
+                dd[rows[i]] = d[i]
+            datas.append(dd)
+        with open(filename_path, 'w') as f:
+            json.dump(datas, f, indent=4,
+                      ensure_ascii=False)
+    dirpath = os.path.join(app.root_path, app.config['OUT_FOLDER'])
+    return send_from_directory(dirpath, filename, as_attachment=True)
+
+
 @app.route('/table-definition/', methods=['POST'])
 def set_table_definition_preference():
     key = "show"
@@ -338,6 +493,20 @@ def set_table_definition_preference():
     elif key in request.session:
         del request.session[key]
     return jsonify({key: show})
+
+
+column_re = re.compile('(.+?)\((.+)\)', re.S)
+column_split_re = re.compile(r'(?:[^,(]|\([^)]*\))+')
+
+
+def _format_create_table(sql):
+    create_table, column_list = column_re.search(sql).groups()
+    columns = ['  %s' % column.strip()
+               for column in column_split_re.findall(column_list)
+               if column.strip()]
+    return '%s (\n%s\n)' % (
+        create_table,
+        ',\n'.join(columns))
 
 
 @app.template_filter()
@@ -365,17 +534,6 @@ def get_query_images():
     return accum
 
 
-def export(table, sql, export_format):
-    cur = dataset.cursor.execute(sql)
-    data = cur.fetchall()
-    data_description = cur.description
-    row_count = cur.rowcount
-    for col_desc in data_description:
-        print(col_desc[0])
-    for row in data:
-        print(row)
-
-
 @app.context_processor
 def _general():
     return {
@@ -385,14 +543,16 @@ def _general():
 
 @app.before_request
 def _before_request():
-    global dataset
-    dataset = SqliteTools(database)
+    if database:
+        global dataset
+        dataset = SqliteTools(database)
 
 
 @app.teardown_request
 def _reset_db(e):
-    dataset.reset
-    dataset.close
+    if dataset:
+        dataset.reset
+        dataset.close
 
 
 def main():
