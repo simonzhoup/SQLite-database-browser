@@ -12,7 +12,7 @@ from functools import wraps
 from collections import namedtuple, OrderedDict
 
 try:
-    from flask import (Flask, render_template, request, abort,
+    from flask import (Flask, render_template, request, abort, session,
                        flash, redirect, url_for, Markup, make_response, send_file, send_from_directory)
 except ImportError:
     raise RuntimeError('Unable to import flask module. Install by running '
@@ -181,29 +181,11 @@ class SqliteTools():
         self.db.rollback()
 
 
-# def no_database(dataset):
-#     def decorator(func):
-#         def wrapper(*args, **kw):
-#             if not dataset:
-#                 print('11111')
-#                 return redirect(url_for('index'))
-#             return func(*args, **kw)
-#         return wrapper
-#     return decorator
-
-
 def require_database(fn):
     @wraps(fn)
-    def inner(*args, **kwargs):
+    def inner(table, *args, **kwargs):
         if not database:
             return redirect(url_for('index'))
-        return fn(*args, **kwargs)
-    return inner
-
-
-def require_table(fn):
-    @wraps(fn)
-    def inner(table, *args, **kwargs):
         if table not in dataset.tables:
             abort(404)
         return fn(table, *args, **kwargs)
@@ -214,12 +196,20 @@ def require_table(fn):
 
 @app.route('/', methods=('GET', 'POST'))
 def index():
+    if request.method == 'POST':
+        global database
+        file = request.files.get('sqlite-file')
+        if file.filename.split('.')[-1] != 'sqlite':
+            database = None
+            flash('No select SQLite database.', 'danger')
+        file.save(file.filename)
+        database = file.filename
+        return redirect(url_for('index'))
     return render_template('index.html')
 
 
-@require_database
 @app.route('/<table>', methods=('GET', 'POST'))
-@require_table
+@require_database
 def table_info(table):
     return render_template(
         'table_structure.html',
@@ -231,9 +221,8 @@ def table_info(table):
         table_sql=dataset.table_sql(table))
 
 
-@require_database
 @app.route('/<table>/rename-column', methods=['GET', 'POST'])
-@require_table
+@require_database
 def rename_column(table):
     rename = request.args.get('rename')
     infos = dataset.get_table_info(table)
@@ -256,9 +245,8 @@ def rename_column(table):
     )
 
 
-@require_database
 @app.route('/<table>/drop-column/', methods=['GET', 'POST'])
-@require_table
+@require_database
 def drop_column(table):
     name = request.args.get('name')
     infos = dataset.get_table_info(table)
@@ -282,9 +270,8 @@ def drop_column(table):
         name=name)
 
 
-@require_database
 @app.route('/<table>/add-column/', methods=['GET', 'POST'])
-@require_table
+@require_database
 def add_column(table):
     column_mapping = ['VARCHAR', 'TEXT', 'INTEGER', 'REAL',
                       'BOOL', 'BLOB', 'DATETIME', 'DATE', 'TIME', 'DECIMAL']
@@ -305,7 +292,6 @@ def add_column(table):
 
 @app.route('/<table>/content/', methods=['GET', 'POST'])
 @require_database
-@require_table
 def table_content(table):
     # filter
     columns_count = dataset.get_table(table)
@@ -336,9 +322,8 @@ def table_content(table):
     )
 
 
-@require_database
 @app.route('/<table>/query/', methods=['GET', 'POST'])
-@require_table
+@require_database
 def table_query(table):
     row_count, error, data, data_description = None, None, None, None
     if request.method == 'POST':
@@ -375,9 +360,8 @@ def table_query(table):
     )
 
 
-@require_database
 @app.route('/table_create/', methods=['POST'])
-@require_table
+@require_database
 def table_create():
     table = request.form.get('table_name', '')
     if not table:
@@ -388,9 +372,8 @@ def table_create():
     return redirect(url_for('table_import', table=table))
 
 
-@require_database
 @app.route('/<table>/import/', methods=['GET', 'POST'])
-@require_table
+@require_database
 def table_import(table):
     if request.method == 'POST':
         file = request.files.get('file')
@@ -414,7 +397,6 @@ def table_import(table):
 
 
 @require_database
-@require_table
 def import_data_file(table, file, file_format):
     file.save(file.filename)
     with open(file.filename, 'r') as f:
@@ -453,6 +435,29 @@ def import_data_file(table, file, file_format):
             except:
                 pass
             return len(csv_data)
+
+
+@app.route('/<table>/drop', methods=['GET', 'POST'])
+@require_database
+def drop_table(table):
+    if request.method == 'POST':
+        try:
+            dataset.cursor.execute('DROP TABLE %s' % table)
+        except Exception as exc:
+            flash('Error importing file: %s' % exc, 'danger')
+        else:
+            flash('Table "%s" dropped successfully.' % table, 'success')
+            return redirect(url_for('index'))
+    return render_template('drop_table.html', table=table)
+
+
+@app.route('/colse')
+def colse():
+    global database
+    global dataset
+    dataset = None
+    database = None
+    return redirect(url_for('index'))
 
 
 def export(table, sql, export_format):
@@ -557,7 +562,7 @@ def _reset_db(e):
 
 def main():
     global database
-    database = 'data-dev.sqlite'
+    database = None
     app.run()
 
 # Run

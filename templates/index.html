@@ -1,6 +1,6 @@
 {% extends "base_tables.html" %}
 
-{% block content_title %}{{ dataset.filename }}{% endblock %}
+{% block content_title %}{% if dataset %}{{ dataset.filename }}{% else %}SQLite database browser{% endif %}{% endblock %}
 
 {% block content %}
 {% if dataset %}
@@ -29,5 +29,14 @@
     </tbody>
   </table>
 {% else %}
+<form class="form" role="form" action="{{ url_for('index') }}" enctype="multipart/form-data" method="post">
+  <div class="form-group">
+    <label for="inputfile">SQLite file</label>
+    <input type="file" id="inputfile" name="sqlite-file">
+    <p class="help-block">Only selected SQLite database file.</p>
+  </div>
+  <button type="submit" class="btn btn-default">Open</button>
+</form>
+ 
 {% endif %}
 {% endblock %}
