@@ -199,12 +199,13 @@ def index():
     if request.method == 'POST':
         global database
         file = request.files.get('sqlite-file')
-        if file.filename.split('.')[-1] != 'sqlite':
+        if not file or file.filename.split('.')[-1] != 'sqlite':
             database = None
             flash('No select SQLite database.', 'danger')
-        file.save(file.filename)
-        database = file.filename
-        return redirect(url_for('index'))
+        else:
+            file.save(file.filename)
+            database = file.filename
+            return redirect(url_for('index'))
     return render_template('index.html')
 
 
@@ -468,6 +469,8 @@ def export(table, sql, export_format):
     filename_path = '%s/%s_export.%s' % (
         app.config['OUT_FOLDER'], table, export_format)
     filename = '%s_export.%s' % (table, export_format)
+    if not os.path.exists(app.config['OUT_FOLDER']):
+        os.mkdir(app.config['OUT_FOLDER'])
     if export_format == 'csv':
         data.insert(0, [row[0] for row in data_description])
         with open(filename_path, 'w', newline='') as f:
