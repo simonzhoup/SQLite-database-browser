@@ -362,7 +362,6 @@ def table_query(table):
 
 
 @app.route('/table_create/', methods=['POST'])
-@require_database
 def table_create():
     table = request.form.get('table_name', '')
     if not table:
